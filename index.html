@@ -1,0 +1,967 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sequence &amp; Algorithm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap">
+<style>
+:root{
+  /* Layout: full-viewport game deck. Ink header with level pips, one slide at a time on a stage that changes colour per level,
+     bottom nav. Panels are sticker-style: thick ink outline plus a hard offset shadow. Committed to one bright look for projectors. */
+  --ink:#1B2559; --paper:#FFFFFF;
+  --sky:#BDE8FF; --mint:#BDF3DA; --lilac:#DCD0FF; --sun:#FFE794; --blush:#FFCADB;
+  --pink:#FF4F8B; --yellow:#FFC22E; --green:#1FBF86; --purple:#7A5CFF; --orange:#FF8A3D; --blue:#2F8CFF;
+  --stage:var(--sky);
+  --f-display:'Fredoka','Trebuchet MS',system-ui,sans-serif;
+  --f-body:'Nunito',system-ui,sans-serif;
+  --bd:4px solid var(--ink);
+  --lift:0 6px 0 var(--ink);
+  --faint:color-mix(in srgb,var(--ink) 30%,transparent);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--ink);font-family:var(--f-body);font-weight:700;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit}
+.ink{stroke:var(--ink);stroke-width:4;stroke-linejoin:round;stroke-linecap:round}
+:focus-visible{outline:4px dashed var(--purple);outline-offset:3px}
+
+.app{height:100%;display:flex;flex-direction:column}
+
+/* header */
+.top{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:10px 16px;background:var(--ink);color:var(--paper)}
+.brand{font:700 1.15rem/1 var(--f-display);letter-spacing:.02em;margin-right:auto}
+.levels{display:flex;gap:8px;list-style:none;margin:0;padding:0}
+.pip{width:38px;height:38px;border-radius:50%;border:3px solid var(--paper);background:transparent;color:var(--paper);font:700 1rem var(--f-display);cursor:pointer;transition:transform .2s}
+.pip.done{background:var(--green);border-color:var(--green);color:var(--ink)}
+.pip.cur{background:var(--yellow);border-color:var(--yellow);color:var(--ink);transform:scale(1.15)}
+.hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hchip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 12px;border-radius:999px;border:3px solid var(--paper);background:transparent;color:var(--paper);font:700 .95rem var(--f-display);font-variant-numeric:tabular-nums}
+button.hchip{cursor:pointer}
+button.hchip[aria-expanded="true"]{background:var(--paper);color:var(--ink)}
+.hchip.bump{animation:bump .4s}
+
+/* stage */
+.stage{flex:1;min-height:0;overflow:auto;background-color:var(--stage);background-image:radial-gradient(rgba(255,255,255,.6) 2.5px,transparent 3px);background-size:30px 30px;transition:background-color .5s}
+.stage[data-s="2"]{--stage:var(--mint)}
+.stage[data-s="3"]{--stage:var(--lilac)}
+.stage[data-s="4"]{--stage:var(--sun)}
+.stage[data-s="5"]{--stage:var(--blush)}
+.slide{width:100%;max-width:1100px;margin:0 auto;min-height:100%;padding:clamp(14px,2.5vw,30px) 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(12px,2vw,22px);position:relative}
+.slide.is-active{animation:slidein .45s ease both}
+@keyframes slidein{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+.panel{background:var(--paper);border:var(--bd);border-radius:24px;box-shadow:var(--lift)}
+.chip{display:inline-block;padding:4px 14px;border-radius:999px;background:var(--paper);border:3px solid var(--ink);font:600 1rem var(--f-display);letter-spacing:.04em;text-transform:uppercase}
+.prompt{margin:0;font:700 clamp(1.5rem,4.2vw,2.5rem)/1.1 var(--f-display);text-align:center;text-wrap:balance}
+.num{display:inline-grid;place-items:center;min-width:1.4em;height:1.4em;border-radius:50%;background:var(--pink);color:var(--paper);border:3px solid var(--ink);padding:0 .1em}
+
+/* buttons */
+.btn{--c:var(--yellow);display:inline-flex;align-items:center;justify-content:center;gap:.5em;padding:.5em 1.1em;border-radius:18px;border:var(--bd);background:var(--c);color:var(--ink);font:700 1.3rem/1.1 var(--f-display);box-shadow:var(--lift);cursor:pointer;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 0 var(--ink)}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.btn:disabled{opacity:.45;cursor:default;transform:none;box-shadow:var(--lift)}
+.btn.big{font-size:clamp(1.6rem,4vw,2.3rem);padding:.55em 1.3em}
+.btn.small{font-size:1.05rem;padding:.45em .9em}
+.btn.pink{--c:var(--pink);color:var(--paper)}
+.btn.green{--c:var(--green)}
+.btn.blue{--c:var(--blue);color:var(--paper)}
+.btn.white{--c:var(--paper)}
+.row{display:flex;flex-wrap:wrap;gap:12px 16px;justify-content:center;align-items:center}
+
+/* ---------- slide 1 ---------- */
+.s1-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:24px;align-items:center;width:100%}
+.s1-copy{display:flex;flex-direction:column;align-items:flex-start;gap:18px;min-width:0}
+.title{margin:0;font:700 clamp(2.6rem,9vw,5.8rem)/.95 var(--f-display);-webkit-text-stroke:7px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink)}
+.title span{display:block}
+.title .w1{color:var(--yellow)}
+.title .amp{color:var(--paper);font-size:.6em}
+.title .w2{color:var(--pink)}
+.energy{display:flex;align-items:center;gap:14px;padding:10px 20px 10px 14px;max-width:100%}
+.energy .ico{font-size:clamp(2rem,6vw,3rem);line-height:1;animation:hop 1.1s ease-in-out infinite}
+.energy p{margin:0;font:600 clamp(1.1rem,2.6vw,1.5rem)/1.15 var(--f-display)}
+.robot-wrap{justify-self:center;width:min(100%,330px);position:relative}
+.robot-btn{display:block;width:100%;background:none;border:0;padding:0;cursor:pointer}
+.robot{width:100%;height:auto;display:block;overflow:visible}
+.robot-btn.jump .robot{animation:jump .5s}
+.wave{transform-origin:158px 168px;animation:wave 1s ease-in-out infinite}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 4s infinite}
+.antenna{animation:pulse 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.arm{fill:none;stroke:var(--ink);stroke-width:18;stroke-linecap:round}
+.arm-in{fill:none;stroke:var(--green);stroke-width:8;stroke-linecap:round}
+@keyframes wave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(26deg)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+@keyframes jump{0%,100%{transform:translateY(0)}40%{transform:translateY(-22px) rotate(-3deg)}}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ---------- slide 2 ---------- */
+.tray,.boxes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(10px,2.2vw,22px);width:100%;max-width:860px}
+.slot{aspect-ratio:1;border-radius:20px;border:3px dashed var(--faint);position:relative}
+.card{position:relative;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px 8px;border:var(--bd);border-radius:20px;background:var(--paper);box-shadow:var(--lift);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;font:inherit}
+.card svg{width:72%;max-height:66%;aspect-ratio:1;pointer-events:none}
+.card .cap{font:600 clamp(.72rem,1.9vw,1.1rem)/1.05 var(--f-display);text-align:center;pointer-events:none}
+.card .letter{position:absolute;top:5px;left:5px;width:28px;height:28px;border-radius:50%;background:var(--purple);color:var(--paper);border:3px solid var(--ink);display:grid;place-items:center;font:700 .9rem var(--f-display);pointer-events:none}
+.card.dragging{z-index:40;cursor:grabbing;box-shadow:0 14px 0 var(--ink)}
+.card.placed{cursor:default;box-shadow:none}
+.box{position:relative;aspect-ratio:1;border-radius:20px;border:4px dashed var(--ink);background:rgba(255,255,255,.6);cursor:pointer;transition:background .2s,transform .2s}
+.box::before{content:attr(data-n);position:absolute;inset:0;display:grid;place-items:center;font:700 clamp(2.6rem,9vw,5rem) var(--f-display);color:var(--faint)}
+.box.hot{background:var(--sun);transform:scale(1.05)}
+.box.filled{border-style:solid;background:var(--sun);cursor:default}
+.box.filled::before{content:none}
+.box .card{position:absolute;inset:0;width:auto;height:auto}
+.tag{position:absolute;top:-14px;right:-8px;z-index:5;width:34px;height:34px;border-radius:50%;background:var(--pink);color:var(--paper);border:3px solid var(--ink);display:grid;place-items:center;font:700 1.1rem var(--f-display)}
+.hint{min-height:1.5em;margin:0;font:600 1.15rem var(--f-display);text-align:center}
+.shake{animation:shake .45s}
+@keyframes shake{0%,100%{translate:0}20%{translate:-9px}40%{translate:9px}60%{translate:-6px}80%{translate:6px}}
+
+/* ---------- slide 3 ---------- */
+.s3-grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:clamp(16px,3vw,36px);align-items:center;width:100%}
+.chest{display:block;width:100%;background:none;border:0;padding:0;cursor:pointer;position:relative}
+.chest svg{width:100%;height:auto;display:block;overflow:visible}
+.lid{transform-origin:34px 104px;transition:transform .6s cubic-bezier(.3,1.5,.5,1)}
+.chest.open .lid{transform:rotate(-40deg) translate(-4px,-4px)}
+.glow,.inside{opacity:0;transition:opacity .4s}
+.chest.open .glow,.chest.open .inside{opacity:1}
+.chest.open .glow{animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{0%,100%{opacity:.75}50%{opacity:1}}
+.tap{position:absolute;left:50%;bottom:-6px;translate:-50% 0;white-space:nowrap;padding:4px 14px;border-radius:999px;background:var(--yellow);border:3px solid var(--ink);font:700 1.1rem var(--f-display);animation:hop 1s ease-in-out infinite}
+.chest.open .tap{display:none}
+.words{display:grid;gap:16px;min-width:0}
+.word{display:flex;align-items:center;gap:14px;padding:12px 18px;border:var(--bd);border-radius:24px;box-shadow:var(--lift);background:var(--paper);min-height:110px}
+.word.seq{border-color:var(--ink);background:var(--mint)}
+.word.alg{background:var(--blush)}
+.word svg{width:clamp(64px,12vw,110px);flex:none}
+.word h3{margin:0;font:700 clamp(1.9rem,5.4vw,3.4rem)/1 var(--f-display)}
+.word p{margin:2px 0 0;font:600 clamp(1rem,2.4vw,1.35rem) var(--f-display)}
+.word .lock{font:700 clamp(1.8rem,5vw,3rem) var(--f-display);letter-spacing:.2em;color:var(--faint);margin:0 auto}
+.words:not(.open) .real{display:none}
+.words.open .lock{display:none}
+.words.open .word{animation:pop .55s cubic-bezier(.2,1.5,.4,1) both}
+.words.open .word.alg{animation-delay:.2s}
+@keyframes pop{from{transform:scale(.4) rotate(-6deg);opacity:0}to{transform:none;opacity:1}}
+.syl{display:inline-block;transition:transform .2s,color .2s}
+.syl.on{color:var(--pink);transform:translateY(-10px) scale(1.18)}
+.word.alg.shout{animation:rumble .25s 6}
+.word.alg.shout .syl{color:var(--pink);transform:scale(1.08)}
+@keyframes rumble{0%,100%{transform:rotate(0)}25%{transform:rotate(-1.5deg) scale(1.03)}75%{transform:rotate(1.5deg) scale(1.03)}}
+.oops{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(27,37,89,.62)}
+.oops-card{width:min(100%,520px);padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.oops-card svg{width:100%;max-width:380px;height:auto}
+.oops-line{margin:0;font:700 clamp(1.4rem,4vw,2rem)/1.1 var(--f-display)}
+.stamp{display:inline-block;padding:2px 16px;border:5px solid var(--pink);color:var(--pink);border-radius:12px;font:700 1.9rem var(--f-display);letter-spacing:.08em;rotate:-6deg;animation:thump .5s both}
+@keyframes thump{from{transform:scale(2.4);opacity:0}to{transform:none;opacity:1}}
+.foam circle{transform-box:fill-box;transform-origin:center;animation:floaty 2s ease-in-out infinite}
+.foam circle:nth-child(2n){animation-delay:.6s}
+.foam circle:nth-child(3n){animation-delay:1.1s}
+@keyframes floaty{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-10px) scale(1.15)}}
+.yuck{animation:wobble .5s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes wobble{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
+
+/* ---------- slide 4 ---------- */
+.seq{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(4px,1.5vw,16px);width:100%;max-width:820px}
+.step{position:relative;aspect-ratio:1;border:var(--bd);border-radius:20px;background:var(--paper);box-shadow:var(--lift);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px 8px;min-width:0}
+.step svg{width:68%;max-height:64%;aspect-ratio:1}
+.step .cap{font:600 clamp(.7rem,1.9vw,1.1rem)/1.05 var(--f-display);text-align:center}
+.step .tag{top:-12px;right:auto;left:-8px;background:var(--blue);width:30px;height:30px;font-size:1rem}
+.step.mystery{border-style:dashed;background:rgba(255,255,255,.7);box-shadow:none}
+.step.mystery .q{font:700 clamp(3rem,10vw,5.5rem)/1 var(--f-display);color:var(--purple);animation:pulse 1.2s ease-in-out infinite}
+.step .found{display:none;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%}
+.step .found svg{width:68%;max-height:64%;aspect-ratio:1}
+.step.mystery.solved{border-style:solid;background:var(--paper);box-shadow:var(--lift)}
+.step.mystery.solved .q{display:none}
+.step.mystery.solved .found{display:flex;animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
+.seq.solved .step{animation:hop .5s ease both}
+.seq.solved .step:nth-of-type(2){animation-delay:.12s}
+.seq.solved .step:nth-of-type(3){animation-delay:.24s}
+.arrow{width:clamp(18px,4vw,36px);height:auto}
+.verdict{min-height:3.2em;margin:0;padding:8px 20px;border-radius:18px;font:700 clamp(1.15rem,3vw,1.7rem)/1.1 var(--f-display);text-align:center;display:flex;align-items:center;justify-content:center;border:3px dashed var(--faint)}
+.verdict.good{background:var(--green);border:var(--bd);box-shadow:var(--lift);animation:pop .5s cubic-bezier(.2,1.5,.4,1) both}
+.verdict.bad{background:var(--blush);border:3px solid var(--ink)}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,2.4vw,24px);width:100%;max-width:820px}
+.opt{position:relative;border:var(--bd);border-radius:22px;background:var(--paper);box-shadow:var(--lift);padding:16px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:transform .12s,box-shadow .12s,background .2s;min-width:0}
+.opt:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 9px 0 var(--ink)}
+.opt:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.opt .e{font-size:clamp(2.6rem,10vw,4.8rem);line-height:1}
+.opt .cap{font:600 clamp(.8rem,2vw,1.2rem)/1.05 var(--f-display);text-align:center}
+.opt .letter{position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;background:var(--purple);color:var(--paper);border:3px solid var(--ink);display:grid;place-items:center;font:700 .9rem var(--f-display)}
+.opt.right{background:var(--green)}
+.opt:disabled:not(.right){opacity:.4;cursor:default}
+
+/* ---------- slide 5 ---------- */
+.s5-grid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:clamp(16px,3vw,40px);align-items:center;width:100%}
+.badge-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+.badge{width:min(100%,260px);height:auto;overflow:visible}
+.medal{filter:grayscale(1);opacity:.45;transform-origin:100px 100px}
+.badge.unlocked .medal{filter:none;opacity:1;animation:unlock .9s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes unlock{from{transform:scale(.2) rotate(-40deg)}to{transform:none}}
+.shine{opacity:0}
+.badge.unlocked .shine{animation:shine 1.6s .8s ease-in-out 2}
+@keyframes shine{0%{opacity:0;transform:translateX(-120px)}30%{opacity:.8}100%{opacity:0;transform:translateX(120px)}}
+.unlock-chip{padding:4px 16px;border-radius:999px;border:3px solid var(--ink);background:var(--paper);font:700 1.1rem var(--f-display);letter-spacing:.06em}
+.s5-right{display:flex;flex-direction:column;gap:16px;min-width:0;align-items:flex-start}
+.clear{margin:0;font:700 clamp(2.4rem,8.4vw,5.2rem)/.95 var(--f-display);color:var(--yellow);-webkit-text-stroke:7px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink)}
+.stars{font-size:clamp(1.6rem,5vw,2.6rem);letter-spacing:.1em}
+.qa{padding:16px 18px;display:flex;flex-direction:column;gap:12px;width:100%}
+.qa .q{margin:0;font:700 clamp(1.25rem,3vw,1.8rem)/1.15 var(--f-display)}
+.answer{position:relative;min-height:84px;display:grid}
+.cover{grid-area:1/1;border:var(--bd);border-radius:18px;background:var(--purple);color:var(--paper);font:700 clamp(1.3rem,3.4vw,2rem) var(--f-display);cursor:pointer;box-shadow:var(--lift);padding:12px;display:flex;align-items:center;justify-content:center;gap:12px;transition:transform .12s}
+.cover:hover{transform:translateY(-2px)}
+.cover .blocks{letter-spacing:.2em;opacity:.85}
+.letters{grid-area:1/1;display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px;font:700 clamp(1.9rem,7.4vw,3.8rem)/1 var(--f-display)}
+.letters span{display:inline-block;animation:pop .5s cubic-bezier(.2,1.5,.4,1) both;animation-delay:calc(var(--i)*70ms);-webkit-text-stroke:2px var(--ink);paint-order:stroke fill}
+.answer.revealed .cover{display:none}
+.answer.revealed .letters{display:flex}
+
+/* ---------- footer, drawer ---------- */
+.bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--ink);color:var(--paper)}
+.bottom .btn{font-size:1.05rem}
+.counter{font:700 1.1rem var(--f-display);font-variant-numeric:tabular-nums}
+.notes{flex:0 0 auto;max-height:46%;overflow:auto;background:var(--paper);border-top:var(--bd);padding:12px 16px 16px;font-weight:600}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tab{padding:6px 16px;border-radius:999px;border:3px solid var(--ink);background:var(--paper);font:700 1rem var(--f-display);cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.sc{border:3px solid var(--faint);border-radius:16px;padding:12px 14px;margin-bottom:10px}
+.sc.cur{border-color:var(--ink);background:color-mix(in srgb,var(--yellow) 22%,var(--paper))}
+.sc h3{margin:0 0 8px;font:700 1.15rem var(--f-display);display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.sc .t{padding:1px 10px;border-radius:999px;background:var(--ink);color:var(--paper);font-size:.85rem;font-variant-numeric:tabular-nums}
+.sc dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 12px}
+.sc dt{font:700 .9rem var(--f-display);text-transform:uppercase;letter-spacing:.06em;color:var(--purple)}
+.sc dd{margin:0;line-height:1.4}
+.sc dd p{margin:0 0 4px}
+.outline h3{margin:0 0 6px;font:700 1.15rem var(--f-display)}
+.outline ul{margin:0 0 12px;padding-left:1.2em;line-height:1.45}
+.tbl{overflow-x:auto}
+.tbl table{border-collapse:collapse;width:100%;min-width:560px}
+.tbl th,.tbl td{text-align:left;padding:6px 10px;border-bottom:2px solid var(--faint);vertical-align:top;line-height:1.35}
+.tbl th{font:700 .9rem var(--f-display);text-transform:uppercase;letter-spacing:.06em}
+.tbl td:nth-child(2){white-space:nowrap;font-variant-numeric:tabular-nums}
+
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:100}
+
+@media (max-width:760px){
+  .s1-grid,.s3-grid,.s5-grid{grid-template-columns:minmax(0,1fr)}
+  .robot-wrap{order:-1;width:min(62vw,260px)}
+  .s1-copy{align-items:center;text-align:center}
+  .title{-webkit-text-stroke-width:5px}
+  .chest{max-width:260px;margin:0 auto}
+  .s5-right{align-items:center;text-align:center}
+  .badge{width:min(60vw,200px)}
+  .pip{width:32px;height:32px;font-size:.9rem}
+  .brand{display:none}
+  .levels{margin-right:auto}
+  .sc dl{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="tooth" viewBox="0 0 100 100">
+      <path d="M50 14C36 5 15 12 15 34c0 15 8 22 10 40 1 12 7 20 13 8 4-8 8-14 12-14s8 6 12 14c6 12 12 4 13-8 2-18 10-25 10-40C85 12 64 5 50 14Z"/>
+    </symbol>
+    <radialGradient id="gl"><stop offset="0" stop-color="#FFF2A6"/><stop offset="1" stop-color="#FFF2A6" stop-opacity="0"/></radialGradient>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">Sequence &amp; Algorithm</div>
+    <ol class="levels" aria-label="Levels">
+      <li><button class="pip cur" data-go="1" aria-label="Go to slide 1">1</button></li>
+      <li><button class="pip" data-go="2" aria-label="Go to slide 2">2</button></li>
+      <li><button class="pip" data-go="3" aria-label="Go to slide 3">3</button></li>
+      <li><button class="pip" data-go="4" aria-label="Go to slide 4">4</button></li>
+      <li><button class="pip" data-go="5" aria-label="Go to slide 5">5</button></li>
+    </ol>
+    <div class="hud">
+      <span class="hchip" id="starChip" title="Stars earned">⭐ <span id="starCount">0</span></span>
+      <span class="hchip" id="clockChip" title="Time since Start Game">⏱ <span id="clock">0:00</span></span>
+      <button class="hchip" id="soundBtn" aria-pressed="true" aria-label="Sound on">🔊</button>
+      <button class="hchip" id="notesBtn" aria-expanded="false" aria-controls="notes">Teacher notes</button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage" data-s="1">
+
+    <!-- SLIDE 1 -->
+    <section class="slide s1 is-active" id="s1" aria-label="Slide 1: Title and energy check">
+      <div class="s1-grid">
+        <div class="s1-copy">
+          <span class="chip">Level 1</span>
+          <h1 class="title"><span class="w1">Sequence</span><span class="amp">&amp;</span><span class="w2">Algorithm!</span></h1>
+          <button class="btn big pink" id="startBtn">▶ Start Game</button>
+          <div class="energy panel">
+            <span class="ico" aria-hidden="true">🙋</span>
+            <span class="ico" aria-hidden="true" style="animation-delay:.25s">🪥</span>
+            <p>Raise your hand!</p>
+          </div>
+        </div>
+        <div class="robot-wrap">
+          <button class="robot-btn" id="robot" aria-label="Poke the robot">
+            <svg class="robot" viewBox="0 0 240 280" aria-hidden="true">
+              <ellipse cx="120" cy="268" rx="64" ry="8" fill="rgba(27,37,89,.2)"/>
+              <rect x="92" y="212" width="18" height="40" rx="6" class="ink" style="fill:var(--purple)"/>
+              <rect x="130" y="212" width="18" height="40" rx="6" class="ink" style="fill:var(--purple)"/>
+              <rect x="82" y="246" width="34" height="14" rx="7" class="ink" style="fill:var(--ink)"/>
+              <rect x="124" y="246" width="34" height="14" rx="7" class="ink" style="fill:var(--ink)"/>
+              <path d="M82 170 Q56 178 52 206" class="arm"/>
+              <path d="M82 170 Q56 178 52 206" class="arm-in"/>
+              <circle cx="52" cy="210" r="12" class="ink" style="fill:var(--yellow)"/>
+              <rect x="78" y="146" width="84" height="76" rx="22" class="ink" style="fill:var(--blue)"/>
+              <circle cx="120" cy="174" r="11" class="ink" style="fill:var(--yellow)"/>
+              <rect x="100" y="196" width="40" height="12" rx="6" class="ink" style="fill:var(--paper)"/>
+              <rect x="108" y="130" width="24" height="20" class="ink" style="fill:var(--purple)"/>
+              <g class="wave">
+                <path d="M158 170 Q190 162 200 130" class="arm"/>
+                <path d="M158 170 Q190 162 200 130" class="arm-in"/>
+                <circle cx="201" cy="122" r="13" class="ink" style="fill:var(--yellow)"/>
+              </g>
+              <line x1="120" y1="52" x2="120" y2="34" class="ink"/>
+              <circle class="antenna ink" cx="120" cy="26" r="10" style="fill:var(--pink)"/>
+              <rect x="44" y="82" width="16" height="34" rx="7" class="ink" style="fill:var(--purple)"/>
+              <rect x="180" y="82" width="16" height="34" rx="7" class="ink" style="fill:var(--purple)"/>
+              <rect x="58" y="52" width="124" height="88" rx="28" class="ink" style="fill:var(--yellow)"/>
+              <rect x="72" y="66" width="96" height="60" rx="20" class="ink" style="fill:var(--ink)"/>
+              <circle class="eye" cx="100" cy="92" r="9" style="fill:#6CF5C2"/>
+              <circle class="eye" cx="140" cy="92" r="9" style="fill:#6CF5C2"/>
+              <path d="M102 108 Q120 124 138 108" fill="none" stroke="#6CF5C2" stroke-width="6" stroke-linecap="round"/>
+              <circle cx="84" cy="108" r="5" style="fill:var(--pink)"/>
+              <circle cx="156" cy="108" r="5" style="fill:var(--pink)"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2 -->
+    <section class="slide s2" id="s2" aria-label="Slide 2: Brushing teeth sorting game" hidden>
+      <p class="prompt" id="s2Prompt" role="status">Which card goes in box <span class="num">1</span>?</p>
+      <div class="tray" id="tray">
+        <div class="slot"><button class="card" data-order="3"><span class="letter">C</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <use href="#tooth" fill="#FFFFFF" class="ink" style="stroke-width:4"/>
+            <circle cx="52" cy="64" r="3.4" fill="#BFE6FF"/>
+            <g transform="translate(34 30) rotate(-32)">
+              <rect x="0" y="0" width="52" height="11" rx="5.5" class="ink" style="fill:var(--blue);stroke-width:3.5"/>
+              <rect x="-22" y="-4" width="26" height="19" rx="4" class="ink" style="fill:var(--paper);stroke-width:3.5"/>
+              <path d="M-18 -4v-5M-12 -4v-5M-6 -4v-5M0 -4v-5" class="ink" style="stroke-width:3"/>
+            </g>
+            <circle cx="20" cy="26" r="6" fill="#fff" stroke="#6FC3FF" stroke-width="2.5"/>
+            <circle cx="12" cy="42" r="4" fill="#fff" stroke="#6FC3FF" stroke-width="2.5"/>
+            <circle cx="86" cy="70" r="5" fill="#fff" stroke="#6FC3FF" stroke-width="2.5"/>
+          </svg>
+          <span class="cap">Brush teeth</span></button></div>
+        <div class="slot"><button class="card" data-order="1"><span class="letter">A</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <use href="#tooth" fill="#E9D58A" class="ink" style="stroke-width:4"/>
+            <circle cx="34" cy="28" r="6" fill="#8A5A2B"/><circle cx="66" cy="26" r="4.5" fill="#8A5A2B"/>
+            <circle cx="60" cy="56" r="5" fill="#8A5A2B"/><circle cx="32" cy="58" r="3.5" fill="#8A5A2B"/>
+            <circle cx="40" cy="40" r="3.4" fill="#1B2559"/><circle cx="60" cy="40" r="3.4" fill="#1B2559"/>
+            <path d="M42 54q8-7 16 0" fill="none" stroke="#1B2559" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M90 12q-6 7 0 13t0 13" fill="none" stroke="#5DBB3F" stroke-width="3" stroke-linecap="round"/>
+            <path d="M8 14q-6 7 0 13t0 13" fill="none" stroke="#5DBB3F" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span class="cap">Dirty teeth</span></button></div>
+        <div class="slot"><button class="card" data-order="4"><span class="letter">D</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <use href="#tooth" fill="#FFFFFF" class="ink" style="stroke-width:4"/>
+            <path d="M33 42q5-6 10 0M57 42q5-6 10 0" fill="none" stroke="#1B2559" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M40 53q10 11 20 0" fill="none" stroke="#1B2559" stroke-width="3.2" stroke-linecap="round"/>
+            <path d="M84 6l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#FFC22E" stroke="#1B2559" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M12 20l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFC22E" stroke="#1B2559" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+          <span class="cap">Clean teeth</span></button></div>
+        <div class="slot"><button class="card" data-order="2"><span class="letter">B</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect x="10" y="72" width="60" height="12" rx="6" class="ink" style="fill:var(--blue);stroke-width:3.5"/>
+            <rect x="64" y="62" width="26" height="22" rx="5" class="ink" style="fill:var(--paper);stroke-width:3.5"/>
+            <path d="M68 62v-8M74 62v-8M80 62v-8M86 62v-8" class="ink" style="stroke-width:3"/>
+            <path d="M66 52q4-8 8 0t8 0t6 0" fill="none" stroke="#3DD6B0" stroke-width="6" stroke-linecap="round"/>
+            <g transform="translate(72 26) rotate(55)">
+              <rect x="-34" y="-11" width="34" height="22" rx="5" class="ink" style="fill:var(--pink);stroke-width:3.5"/>
+              <rect x="0" y="-6" width="12" height="12" rx="2" class="ink" style="fill:var(--paper);stroke-width:3.5"/>
+            </g>
+            <path d="M80 38v8" stroke="#3DD6B0" stroke-width="5" stroke-linecap="round"/>
+          </svg>
+          <span class="cap">Pour toothpaste</span></button></div>
+      </div>
+      <div class="boxes" id="boxes">
+        <div class="box" data-n="1"><span class="tag">1</span></div>
+        <div class="box" data-n="2"><span class="tag">2</span></div>
+        <div class="box" data-n="3"><span class="tag">3</span></div>
+        <div class="box" data-n="4"><span class="tag">4</span></div>
+      </div>
+      <p class="hint" id="s2Hint" role="status"></p>
+      <div class="row" id="s2Tools">
+        <button class="btn small white" id="showBtn">🪄 Show me</button>
+        <button class="btn small white" id="resetBtn">↺ Reset</button>
+      </div>
+      <div class="row" id="s2Done" hidden>
+        <button class="btn green" id="toS3">Next level ▶</button>
+      </div>
+    </section>
+
+    <!-- SLIDE 3 -->
+    <section class="slide s3" id="s3" aria-label="Slide 3: The secret words" hidden>
+      <div class="s3-grid">
+        <button class="chest" id="chest" aria-label="Open the treasure chest">
+          <svg viewBox="0 0 260 220" aria-hidden="true">
+            <circle class="glow" cx="130" cy="96" r="120" fill="url(#gl)"/>
+            <rect x="34" y="104" width="192" height="96" rx="10" class="ink" style="fill:#C77D3A;stroke-width:6"/>
+            <path d="M34 140h192M34 172h192" class="ink" style="stroke-width:3;opacity:.35"/>
+            <rect x="62" y="104" width="16" height="96" class="ink" style="fill:var(--yellow);stroke-width:4"/>
+            <rect x="182" y="104" width="16" height="96" class="ink" style="fill:var(--yellow);stroke-width:4"/>
+            <rect class="inside" x="44" y="98" width="172" height="16" rx="6" style="fill:#2B1B3D"/>
+            <g class="lid">
+              <path d="M34 104V84Q34 38 130 38Q226 38 226 84V104Z" class="ink" style="fill:#E39A4F;stroke-width:6"/>
+              <path d="M70 46v58M190 46v58" class="ink" style="stroke:var(--yellow);stroke-width:14"/>
+              <path d="M70 46v58M190 46v58" class="ink" style="stroke-width:3;opacity:.0"/>
+            </g>
+            <rect x="116" y="94" width="28" height="34" rx="6" class="ink" style="fill:var(--yellow);stroke-width:5"/>
+            <circle cx="130" cy="107" r="4" style="fill:var(--ink)"/>
+            <rect x="128" y="108" width="4" height="12" rx="2" style="fill:var(--ink)"/>
+          </svg>
+          <span class="tap">Tap the chest!</span>
+        </button>
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div class="words" id="words">
+            <div class="word seq">
+              <svg viewBox="0 0 120 50" aria-hidden="true">
+                <path d="M34 25h12M74 25h12" class="ink" style="stroke-width:4"/>
+                <circle cx="20" cy="25" r="15" class="ink" style="fill:var(--yellow);stroke-width:3.5"/>
+                <circle cx="60" cy="25" r="15" class="ink" style="fill:var(--yellow);stroke-width:3.5"/>
+                <circle cx="100" cy="25" r="15" class="ink" style="fill:var(--yellow);stroke-width:3.5"/>
+                <path d="M16 20l5-3v16" fill="none" class="ink" style="stroke-width:3.5"/>
+                <path d="M53 20q3-5 8-2t-1 8l-7 8h9" fill="none" class="ink" style="stroke-width:3.5"/>
+                <path d="M93 19q4-3 8 0t-2 6q6 1 3 7t-9 1" fill="none" class="ink" style="stroke-width:3.5"/>
+              </svg>
+              <span class="lock" aria-hidden="true">? ? ?</span>
+              <div class="real"><h3>Sequence</h3><p>Number of steps</p></div>
+            </div>
+            <div class="word alg" id="algoWord">
+              <svg viewBox="0 0 120 50" aria-hidden="true">
+                <rect x="6" y="6" width="108" height="38" rx="10" class="ink" style="fill:var(--paper);stroke-width:3.5"/>
+                <circle cx="30" cy="25" r="11" class="ink" style="fill:var(--green);stroke-width:3.5"/>
+                <path d="M24 25l5 5 8-10" fill="none" class="ink" style="stroke-width:4"/>
+                <path d="M52 17h50M52 25h50M52 33h34" class="ink" style="stroke-width:4"/>
+              </svg>
+              <span class="lock" aria-hidden="true">? ? ?</span>
+              <div class="real"><h3><span class="syl">Al</span><span class="syl">go</span><span class="syl">rith</span><span class="syl">m</span></h3><p>The correct logical order</p></div>
+            </div>
+          </div>
+          <div class="row" id="s3Acts" hidden>
+            <button class="btn pink" id="shoutBtn">📣 Shout it!</button>
+            <button class="btn blue" id="oopsBtn">🧼 What if it is wrong?</button>
+          </div>
+        </div>
+      </div>
+      <div class="oops" id="oops" role="dialog" aria-label="A wrong algorithm" hidden>
+        <div class="oops-card panel">
+          <span class="stamp">WRONG!</span>
+          <svg viewBox="0 0 320 190" aria-hidden="true">
+            <g class="yuck">
+              <use href="#tooth" x="30" y="20" width="130" height="130" fill="#CFEFB4" class="ink" style="stroke-width:3"/>
+              <path d="M70 66l12 8M110 66l-12 8" class="ink" style="stroke-width:3.2"/>
+              <path d="M76 98q10-8 20 0t20 0" fill="none" class="ink" style="stroke-width:3.2"/>
+              <path d="M92 100v14q0 8 9 8t9-8v-14" class="ink" style="fill:var(--pink);stroke-width:3"/>
+            </g>
+            <g transform="rotate(-18 230 110)">
+              <rect x="176" y="86" width="104" height="54" rx="16" class="ink" style="fill:#8FD3FF"/>
+              <rect x="150" y="60" width="86" height="12" rx="6" class="ink" style="fill:var(--blue);stroke-width:3.5"/>
+              <rect x="120" y="54" width="34" height="24" rx="5" class="ink" style="fill:var(--paper);stroke-width:3.5"/>
+            </g>
+            <g class="foam" fill="#fff" stroke="#6FC3FF" stroke-width="3">
+              <circle cx="190" cy="60" r="12"/><circle cx="220" cy="40" r="9"/><circle cx="256" cy="68" r="11"/>
+              <circle cx="170" cy="36" r="7"/><circle cx="282" cy="44" r="8"/><circle cx="236" cy="22" r="6"/>
+            </g>
+          </svg>
+          <p class="oops-line">Soap on the toothbrush? Bleh!</p>
+          <button class="btn green" id="fixBtn">✔ Fix the algorithm</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4 -->
+    <section class="slide s4" id="s4" aria-label="Slide 4: The detective challenge" hidden>
+      <p class="prompt"><span aria-hidden="true">🔍</span> What is step <span class="num">2</span>?</p>
+      <div class="seq" id="s4Seq">
+        <div class="step"><span class="tag">1</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M24 38q26-26 52 0z" class="ink" style="fill:#6B4226;stroke-width:3.5"/>
+            <path d="M22 50h56l-7 36a6 6 0 0 1-6 5H35a6 6 0 0 1-6-5z" class="ink" style="fill:var(--orange);stroke-width:3.5"/>
+            <rect x="16" y="38" width="68" height="14" rx="6" class="ink" style="fill:#FFA45E;stroke-width:3.5"/>
+          </svg>
+          <span class="cap">Put soil in pot</span></div>
+        <svg class="arrow" viewBox="0 0 30 30" aria-hidden="true"><path d="M6 15h16M15 6l9 9-9 9" fill="none" class="ink" style="stroke-width:5"/></svg>
+        <div class="step mystery" id="mystery"><span class="tag">2</span>
+          <span class="q" aria-hidden="true">?</span>
+          <div class="found">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <ellipse cx="50" cy="16" rx="7" ry="10" class="ink" style="fill:#C98B3C;stroke-width:3.5"/>
+              <path d="M24 56q26-26 52 0z" class="ink" style="fill:#6B4226;stroke-width:3.5"/>
+              <ellipse cx="50" cy="40" rx="11" ry="4.5" style="fill:#2A180B"/>
+              <path d="M22 62h56l-7 26a6 6 0 0 1-6 5H35a6 6 0 0 1-6-5z" class="ink" style="fill:var(--orange);stroke-width:3.5"/>
+              <rect x="16" y="52" width="68" height="14" rx="6" class="ink" style="fill:#FFA45E;stroke-width:3.5"/>
+              <path d="M50 28v6" class="ink" style="stroke-width:3"/>
+            </svg>
+            <span class="cap">Put the seed in the hole</span>
+          </div>
+        </div>
+        <svg class="arrow" viewBox="0 0 30 30" aria-hidden="true"><path d="M6 15h16M15 6l9 9-9 9" fill="none" class="ink" style="stroke-width:5"/></svg>
+        <div class="step"><span class="tag">3</span>
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect x="18" y="40" width="42" height="36" rx="9" class="ink" style="fill:var(--blue);stroke-width:3.5"/>
+            <path d="M60 52L86 34" class="ink" style="stroke-width:11"/>
+            <path d="M60 52L86 34" style="stroke:var(--blue);stroke-width:5;stroke-linecap:round"/>
+            <path d="M22 46Q4 40 14 26Q24 18 32 40" fill="none" class="ink" style="stroke-width:5"/>
+            <path d="M92 48q-5 8 0 11t5-11z M82 62q-4 7 1 10t4-10z M94 70q-4 7 1 10t4-10z" fill="#6FC3FF" stroke="#1B2559" stroke-width="2.5" stroke-linejoin="round"/>
+          </svg>
+          <span class="cap">Water the seed</span></div>
+      </div>
+      <p class="verdict" id="s4Verdict" role="status">Tap the missing step!</p>
+      <div class="opts" id="opts">
+        <button class="opt" data-k="A"><span class="letter">A</span><span class="e" aria-hidden="true">🍔</span><span class="cap">Eat a burger</span></button>
+        <button class="opt" data-k="B" data-ok="1"><span class="letter">B</span><span class="e" aria-hidden="true">🌰</span><span class="cap">Put the seed in the hole</span></button>
+        <button class="opt" data-k="C"><span class="letter">C</span><span class="e" aria-hidden="true">🎮</span><span class="cap">Play games</span></button>
+      </div>
+    </section>
+
+    <!-- SLIDE 5 -->
+    <section class="slide s5" id="s5" aria-label="Slide 5: Level cleared" hidden>
+      <div class="s5-grid">
+        <div class="badge-wrap">
+          <svg class="badge" id="badge" viewBox="0 0 200 250" aria-label="Badge: unlocked when the level is cleared" role="img">
+            <defs><clipPath id="medalClip"><circle cx="100" cy="100" r="74"/></clipPath></defs>
+            <g class="medal">
+              <path d="M62 150L38 232L76 214L96 244L110 156Z" class="ink" style="fill:var(--pink);stroke-width:5"/>
+              <path d="M138 150L162 232L124 214L104 244L90 156Z" class="ink" style="fill:var(--blue);stroke-width:5"/>
+              <circle cx="100" cy="100" r="80" class="ink" style="fill:var(--yellow);stroke-width:6"/>
+              <circle cx="100" cy="100" r="62" class="ink" style="fill:#FFE48A;stroke-width:4"/>
+              <polygon points="100,56 110.5,86 142,87.5 117,106.5 126,138 100,119.5 74,138 83,106.5 58,87.5 89.5,86" class="ink" style="fill:var(--orange);stroke-width:5"/>
+              <g clip-path="url(#medalClip)"><rect class="shine" x="70" y="10" width="26" height="180" fill="#fff" transform="rotate(20 100 100)"/></g>
+            </g>
+          </svg>
+          <span class="unlock-chip">Badge unlocked!</span>
+        </div>
+        <div class="s5-right">
+          <h2 class="clear">Level 1 Cleared!</h2>
+          <div class="stars" aria-hidden="true">⭐⭐⭐</div>
+          <div class="qa panel">
+            <p class="q">So, what do we call the correct order of steps?</p>
+            <div class="answer" id="answer">
+              <button class="cover" id="revealBtn"><span class="blocks" aria-hidden="true">? ? ? ? ?</span> Click to reveal</button>
+              <div class="letters" aria-live="polite" aria-label="Algorithm">
+                <span style="--i:0;color:var(--pink)">A</span><span style="--i:1;color:var(--orange)">L</span><span style="--i:2;color:var(--yellow)">G</span><span style="--i:3;color:var(--green)">O</span><span style="--i:4;color:var(--blue)">R</span><span style="--i:5;color:var(--purple)">I</span><span style="--i:6;color:var(--pink)">T</span><span style="--i:7;color:var(--orange)">H</span><span style="--i:8;color:var(--green)">M</span>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <span class="hchip" style="color:var(--ink);border-color:var(--ink);background:var(--paper)">⭐ <span id="s5Stars">0</span> collected</span>
+            <button class="btn small white" id="moreConfetti">🎉 More confetti</button>
+            <button class="btn small green" id="playAgain" hidden>↺ Play again</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="notes" id="notes" hidden aria-label="Teacher notes">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-p="script" aria-selected="true">Script</button>
+      <button class="tab" role="tab" data-p="outline" aria-selected="false">Outline</button>
+    </div>
+    <div id="panelScript">
+      <article class="sc cur" data-for="1">
+        <h3><span class="t">0:00 to 0:45</span> Slide 1 · Title and energy check</h3>
+        <dl>
+          <dt>Say</dt><dd><p>"Hello, coders! This is Robo, and today we play a game. Are you ready?"</p><p>"First, an energy check. Who brushed their teeth this morning? Raise your hand!"</p><p>"Wow, so many clean teeth! Brushing is secretly coding. Let's find out why."</p></dd>
+          <dt>Do</dt><dd>Let Robo wave while you greet the class. Count the hands. Click Start Game. The timer in the header starts there.</dd>
+          <dt>Kids</dt><dd>Raise hands, cheer, poke the robot.</dd>
+        </dl>
+      </article>
+      <article class="sc" data-for="2">
+        <h3><span class="t">0:45 to 2:00</span> Slide 2 · Brushing teeth sorting game</h3>
+        <dl>
+          <dt>Say</dt><dd><p>"Oh no! Robo mixed up the brushing steps. Help me fix them."</p><p>"Which card goes in box 1?" Wait for answers. "Yes! Dirty teeth come first." Repeat for boxes 2, 3 and 4.</p></dd>
+          <dt>Do</dt><dd>When the class answers, click the empty box (or press Show me) and the card flies in. Or invite a child to drag it. A wrong card wobbles back, so ask "Do we brush before the toothpaste?"</dd>
+          <dt>Key</dt><dd>Box 1 = A Dirty teeth · Box 2 = B Pour toothpaste · Box 3 = C Brush teeth · Box 4 = D Clean teeth. Aim for about 15 seconds per box.</dd>
+        </dl>
+      </article>
+      <article class="sc" data-for="3">
+        <h3><span class="t">2:00 to 3:15</span> Slide 3 · The secret words</h3>
+        <dl>
+          <dt>Say</dt><dd><p>"You just made a sequence! Two secret words are hiding in this chest. Who wants to open it?"</p><p>"A sequence is a number of steps. An algorithm is the correct logical order of those steps."</p><p>"Everybody shout it with me: AL-GO-RITH-M!"</p><p>"What if the algorithm is wrong? Brushing with soap?!"</p></dd>
+          <dt>Do</dt><dd>Click the chest. Click Shout it and point at each syllable as it lights up. Click the soap button for the funny wrong algorithm, then Fix the algorithm.</dd>
+          <dt>Kids</dt><dd>Shout "ALGORITHM!" together, groan at the soap.</dd>
+        </dl>
+      </article>
+      <article class="sc" data-for="4">
+        <h3><span class="t">3:15 to 4:30</span> Slide 4 · The detective challenge</h3>
+        <dl>
+          <dt>Say</dt><dd><p>"Detective time! We are planting a seed. Step 1: put soil in the pot. Step 3: water the seed. Step 2 is missing. What is it?"</p><p>"Point to A, B or C." After the vote: "Let's check!"</p></dd>
+          <dt>Do</dt><dd>Click the answer the class chose. A or C shakes and says try again, B shows Correct. Ask why a burger does not belong in the sequence.</dd>
+          <dt>Kids</dt><dd>Vote by pointing, explain their choice in one sentence.</dd>
+        </dl>
+      </article>
+      <article class="sc" data-for="5">
+        <h3><span class="t">4:30 to 5:00</span> Slide 5 · Level cleared</h3>
+        <dl>
+          <dt>Say</dt><dd><p>"Level 1 cleared! You unlocked a badge."</p><p>"One last question: what do we call the correct order of steps?" Pause for answers.</p><p>"ALGORITHM! You are all coders now. High five!"</p></dd>
+          <dt>Do</dt><dd>Let the confetti fall, ask the question, then click to reveal. Press Play again to reset for the next group.</dd>
+        </dl>
+      </article>
+    </div>
+    <div id="panelOutline" class="outline" hidden>
+      <h3>Goals</h3>
+      <ul>
+        <li>Put everyday steps in the right order.</li>
+        <li>Say that an algorithm is the correct logical order of steps.</li>
+        <li>Spot a missing step in a sequence.</li>
+      </ul>
+      <h3>Slides at a glance (5 minutes)</h3>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>Slide</th><th>Time</th><th>Purpose</th><th>Interaction</th></tr></thead>
+          <tbody>
+            <tr><td>1 Title and energy check</td><td>0:00 to 0:45</td><td>Welcome and warm up</td><td>Start Game button, raise-your-hand question, poke the robot</td></tr>
+            <tr><td>2 Sorting game</td><td>0:45 to 2:00</td><td>Feel what a sequence is</td><td>Drag and drop, tap, or click a box to reveal the card</td></tr>
+            <tr><td>3 The secret words</td><td>2:00 to 3:15</td><td>Name sequence and algorithm</td><td>Click-to-open chest, shout ALGORITHM, wrong-algorithm gag</td></tr>
+            <tr><td>4 Detective challenge</td><td>3:15 to 4:30</td><td>Find the missing step</td><td>Three-option multiple choice with sound</td></tr>
+            <tr><td>5 Level cleared</td><td>4:30 to 5:00</td><td>Recall and celebrate</td><td>Confetti, badge, click-to-reveal answer</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Before you start</h3>
+      <ul>
+        <li>Go full screen and turn the sound up. Sound begins after your first click.</li>
+        <li>Move with the Next button or the arrow keys. The round numbers in the header jump to any slide.</li>
+      </ul>
+    </div>
+  </aside>
+
+  <footer class="bottom">
+    <button class="btn small white" id="prev">◀ Back</button>
+    <span class="counter" id="counter">1 / 5</span>
+    <button class="btn small white" id="next">Next ▶</button>
+  </footer>
+</div>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+(function(){
+'use strict';
+var $=function(s,r){return (r||document).querySelector(s)};
+var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- sound ---------- */
+var ac=null,muted=false;
+function tone(f,d,type,vol,delay){
+  if(muted)return;
+  try{
+    ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+    if(ac.state==='suspended')ac.resume();
+    var t=ac.currentTime+(delay||0),o=ac.createOscillator(),g=ac.createGain();
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol||.15,t+.02);
+    g.gain.exponentialRampToValueAtTime(.0001,t+d);
+    o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d+.05);
+  }catch(e){}
+}
+var sfx={
+  pop:function(){tone(540,.09,'sine',.14)},
+  ding:function(){tone(784,.14,'triangle',.16);tone(1175,.28,'triangle',.14,.1)},
+  buzz:function(){tone(150,.28,'sawtooth',.09);tone(110,.28,'sawtooth',.09,.12)},
+  win:function(){[523,659,784,1047].forEach(function(f,i){tone(f,.26,'triangle',.15,i*.11)})},
+  chest:function(){tone(220,.25,'square',.06);tone(330,.25,'square',.06,.12);tone(660,.35,'triangle',.14,.26)},
+  syl:function(i){tone(260+i*90,.2,'square',.07)}
+};
+
+/* ---------- confetti ---------- */
+var cv=$('#confetti'),cx=cv.getContext('2d');
+var parts=[],raf=0,W=0,H=0,rainUntil=0;
+var COL=['#FF4F8B','#FFC22E','#1FBF86','#7A5CFF','#2F8CFF','#FF8A3D'];
+function fit(){
+  var d=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth;H=window.innerHeight;
+  cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0);
+}
+window.addEventListener('resize',fit);fit();
+function spawn(x,y,vx,vy){
+  parts.push({x:x,y:y,vx:vx,vy:vy,r:Math.random()*6.28,vr:(Math.random()-.5)*.4,s:6+Math.random()*7,
+    c:COL[(Math.random()*COL.length)|0],life:0,max:140+Math.random()*80,round:Math.random()<.35});
+}
+function run(){if(!raf)raf=requestAnimationFrame(tick)}
+function burst(el,n){
+  if(reduce)return;
+  var r=el?el.getBoundingClientRect():{left:W/2,top:H/2,width:0,height:0};
+  var x=r.left+r.width/2,y=r.top+r.height/2;
+  for(var i=0;i<(n||40);i++){var a=Math.random()*6.283,v=3+Math.random()*7;spawn(x,y,Math.cos(a)*v,Math.sin(a)*v-4)}
+  run();
+}
+function rain(ms){if(reduce)return;rainUntil=performance.now()+ms;run()}
+function tick(now){
+  cx.clearRect(0,0,W,H);
+  if(now<rainUntil&&parts.length<260){for(var i=0;i<4;i++)spawn(Math.random()*W,-12,(Math.random()-.5)*2,2+Math.random()*3)}
+  parts=parts.filter(function(p){return p.life<p.max&&p.y<H+30});
+  parts.forEach(function(p){
+    p.life++;p.vy+=.18;p.vx*=.992;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;
+    cx.save();cx.translate(p.x,p.y);cx.rotate(p.r);cx.fillStyle=p.c;
+    if(p.round){cx.beginPath();cx.arc(0,0,p.s/2,0,6.283);cx.fill()}else{cx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2)}
+    cx.restore();
+  });
+  if(parts.length||now<rainUntil){raf=requestAnimationFrame(tick)}else{raf=0;cx.clearRect(0,0,W,H)}
+}
+
+/* ---------- state, stars, timer ---------- */
+var state={slide:1,stars:0,t0:null,timer:null};
+var awarded={};
+function award(k){
+  if(awarded[k])return;awarded[k]=true;state.stars++;
+  $('#starCount').textContent=state.stars;$('#s5Stars').textContent=state.stars;
+  var c=$('#starChip');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');
+}
+function fmt(s){return Math.floor(s/60)+':'+('0'+(s%60)).slice(-2)}
+function startTimer(){
+  if(state.t0)return;state.t0=Date.now();
+  state.timer=setInterval(function(){$('#clock').textContent=fmt(Math.floor((Date.now()-state.t0)/1000))},500);
+}
+
+/* ---------- navigation ---------- */
+var slides=$$('.slide'),pips=$$('.pip'),stage=$('#stage'),notes=$('#notes');
+function go(n){
+  n=Math.max(1,Math.min(5,n));state.slide=n;
+  slides.forEach(function(s,i){var on=i+1===n;s.hidden=!on;s.classList.toggle('is-active',on)});
+  stage.dataset.s=String(n);
+  pips.forEach(function(p,i){
+    p.classList.toggle('cur',i+1===n);p.classList.toggle('done',i+1<n);
+    p.setAttribute('aria-current',i+1===n?'step':'false');
+  });
+  $('#counter').textContent=n+' / 5';
+  $('#prev').disabled=n===1;$('#next').disabled=n===5;
+  stage.scrollTop=0;
+  $$('.sc').forEach(function(el){el.classList.toggle('cur',+el.dataset['for']===n)});
+  if(!notes.hidden){var cur=$('.sc.cur');if(cur&&cur.scrollIntoView)cur.scrollIntoView({block:'nearest'})}
+  if(n>1)startTimer();
+  if(n===5)s5.enter();
+}
+$('#prev').addEventListener('click',function(){go(state.slide-1)});
+$('#next').addEventListener('click',function(){go(state.slide+1)});
+pips.forEach(function(p){p.addEventListener('click',function(){go(+p.dataset.go)})});
+window.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'||e.key==='PageDown')go(state.slide+1);
+  else if(e.key==='ArrowLeft'||e.key==='PageUp')go(state.slide-1);
+});
+
+/* ---------- header controls ---------- */
+$('#soundBtn').addEventListener('click',function(e){
+  muted=!muted;var b=e.currentTarget;
+  b.textContent=muted?'🔇':'🔊';b.setAttribute('aria-pressed',String(!muted));b.setAttribute('aria-label',muted?'Sound off':'Sound on');
+  if(!muted)sfx.pop();
+});
+$('#notesBtn').addEventListener('click',function(e){
+  var open=notes.hidden;notes.hidden=!open;
+  e.currentTarget.setAttribute('aria-expanded',String(open));
+  if(open){var cur=$('.sc.cur');if(cur&&cur.scrollIntoView)cur.scrollIntoView({block:'nearest'})}
+});
+$$('.tab').forEach(function(t){t.addEventListener('click',function(){
+  $$('.tab').forEach(function(x){x.setAttribute('aria-selected',String(x===t))});
+  $('#panelScript').hidden=t.dataset.p!=='script';
+  $('#panelOutline').hidden=t.dataset.p!=='outline';
+})});
+
+/* ---------- slide 1 ---------- */
+$('#startBtn').addEventListener('click',function(){sfx.win();startTimer();go(2)});
+$('#robot').addEventListener('click',function(e){
+  sfx.pop();var b=e.currentTarget;b.classList.remove('jump');void b.offsetWidth;b.classList.add('jump');
+});
+
+/* ---------- slide 2: sorting game ---------- */
+var s2=(function(){
+  var boxes=$$('#s2 .box'),cards=$$('#s2 .card'),prompt=$('#s2Prompt'),hint=$('#s2Hint'),done=$('#s2Done');
+  var home=cards.map(function(c){return c.parentElement});
+  function nextBox(){return boxes.filter(function(b){return !b.querySelector('.card')})[0]}
+  function refresh(){
+    var nb=nextBox();
+    if(nb){prompt.innerHTML='Which card goes in box <span class="num">'+nb.dataset.n+'</span>?';done.hidden=true}
+    else{prompt.textContent='Perfect order!';done.hidden=false}
+  }
+  function fly(card,box){
+    var a=card.getBoundingClientRect();
+    card.classList.remove('dragging');
+    card.style.transition='none';card.style.transform='';
+    box.appendChild(card);
+    var b=card.getBoundingClientRect();
+    card.style.transform='translate('+(a.left-b.left)+'px,'+(a.top-b.top)+'px) scale('+(a.width/b.width)+')';
+    void card.offsetWidth;
+    card.style.transition='transform .55s cubic-bezier(.2,1.35,.4,1)';
+    card.style.transform='';
+    setTimeout(function(){card.style.transition=''},650);
+  }
+  function place(card,box){
+    fly(card,box);
+    card.dataset.placed='1';card.classList.add('placed');box.classList.add('filled');
+    hint.textContent='';sfx.ding();award('c'+card.dataset.order);
+    setTimeout(function(){burst(box,16)},250);
+    refresh();
+    if(!nextBox()){setTimeout(function(){sfx.win();burst(prompt,70)},500)}
+  }
+  function wrong(card,msg){
+    card.classList.remove('dragging','shake');
+    card.style.transition='transform .25s';card.style.transform='';
+    void card.offsetWidth;card.classList.add('shake');
+    sfx.buzz();hint.textContent=msg||'Not that one. What happens first?';
+    setTimeout(function(){card.classList.remove('shake')},500);
+  }
+  function guess(card){
+    var nb=nextBox();if(!nb)return;
+    if(+card.dataset.order===+nb.dataset.n)place(card,nb);else wrong(card);
+  }
+  function reveal(box){
+    var card=cards.filter(function(c){return +c.dataset.order===+box.dataset.n})[0];
+    if(card&&!card.dataset.placed)place(card,box);
+  }
+  function boxAt(x,y){
+    return boxes.filter(function(b){var r=b.getBoundingClientRect();return x>=r.left-8&&x<=r.right+8&&y>=r.top-8&&y<=r.bottom+8})[0];
+  }
+  function snap(card){card.classList.remove('dragging');card.style.transition='transform .3s';card.style.transform=''}
+  cards.forEach(function(card){
+    var sx=0,sy=0,drag=false,id=null;
+    card.addEventListener('pointerdown',function(e){
+      if(card.dataset.placed)return;
+      id=e.pointerId;try{card.setPointerCapture(id)}catch(err){}
+      sx=e.clientX;sy=e.clientY;drag=false;
+    });
+    card.addEventListener('pointermove',function(e){
+      if(id!==e.pointerId||card.dataset.placed)return;
+      var dx=e.clientX-sx,dy=e.clientY-sy;
+      if(!drag&&Math.hypot(dx,dy)>8){drag=true;card.classList.add('dragging')}
+      if(drag){
+        card.style.transition='none';
+        card.style.transform='translate('+dx+'px,'+dy+'px) rotate('+(dx/60)+'deg) scale(1.06)';
+        var hit=boxAt(e.clientX,e.clientY);
+        boxes.forEach(function(b){b.classList.toggle('hot',b===hit&&!b.querySelector('.card'))});
+      }
+    });
+    card.addEventListener('pointerup',function(e){
+      if(id!==e.pointerId)return;id=null;
+      boxes.forEach(function(b){b.classList.remove('hot')});
+      if(card.dataset.placed)return;
+      if(!drag){guess(card);return}
+      drag=false;
+      var hit=boxAt(e.clientX,e.clientY);
+      if(hit&&!hit.querySelector('.card')){
+        if(+hit.dataset.n===+card.dataset.order)place(card,hit);else wrong(card,'Wrong box! Think about the order.');
+      }else{snap(card)}
+    });
+    card.addEventListener('pointercancel',function(e){
+      if(id!==e.pointerId)return;id=null;drag=false;
+      boxes.forEach(function(b){b.classList.remove('hot')});snap(card);
+    });
+    card.addEventListener('click',function(e){if(e.detail===0&&!card.dataset.placed)guess(card)});
+  });
+  boxes.forEach(function(b){b.addEventListener('click',function(){if(!b.querySelector('.card'))reveal(b)})});
+  function reset(){
+    cards.forEach(function(c,i){
+      home[i].appendChild(c);c.classList.remove('placed','shake','dragging');
+      c.style.transform='';c.style.transition='';delete c.dataset.placed;
+    });
+    boxes.forEach(function(b){b.classList.remove('filled','hot')});
+    hint.textContent='';refresh();
+  }
+  $('#showBtn').addEventListener('click',function(){var nb=nextBox();if(nb)reveal(nb)});
+  $('#resetBtn').addEventListener('click',reset);
+  $('#toS3').addEventListener('click',function(){go(3)});
+  refresh();
+  return{reset:reset};
+})();
+
+/* ---------- slide 3: secret words ---------- */
+var s3=(function(){
+  var chest=$('#chest'),words=$('#words'),acts=$('#s3Acts'),oops=$('#oops'),algo=$('#algoWord');
+  var syl=$$('.syl',algo),opened=false,tm=[];
+  chest.addEventListener('click',function(){
+    if(opened)return;opened=true;
+    chest.classList.add('open');chest.setAttribute('aria-pressed','true');sfx.chest();
+    setTimeout(function(){words.classList.add('open');acts.hidden=false;sfx.ding();burst(chest,50)},500);
+  });
+  function clearShout(){
+    tm.forEach(clearTimeout);tm=[];
+    algo.classList.remove('shout');syl.forEach(function(s){s.classList.remove('on')});
+  }
+  $('#shoutBtn').addEventListener('click',function(){
+    clearShout();
+    syl.forEach(function(s,i){tm.push(setTimeout(function(){s.classList.add('on');sfx.syl(i)},i*480))});
+    tm.push(setTimeout(function(){algo.classList.add('shout');sfx.win();burst(algo,60);award('shout')},syl.length*480));
+    tm.push(setTimeout(clearShout,syl.length*480+1600));
+  });
+  $('#oopsBtn').addEventListener('click',function(){oops.hidden=false;sfx.buzz()});
+  $('#fixBtn').addEventListener('click',function(){oops.hidden=true;sfx.ding()});
+  function reset(){
+    opened=false;clearShout();
+    chest.classList.remove('open');chest.removeAttribute('aria-pressed');
+    words.classList.remove('open');acts.hidden=true;oops.hidden=true;
+  }
+  return{reset:reset};
+})();
+
+/* ---------- slide 4: detective ---------- */
+var s4=(function(){
+  var opts=$$('#s4 .opt'),verdict=$('#s4Verdict'),seq=$('#s4Seq'),myst=$('#mystery');
+  var solved=false;
+  var msg={A:'A burger? The plant is not hungry!',C:'Fun! But the seed is still waiting.'};
+  opts.forEach(function(o){o.addEventListener('click',function(){
+    if(solved)return;
+    if(o.dataset.ok==='1'){
+      solved=true;o.classList.add('right');
+      opts.forEach(function(x){if(x!==o)x.disabled=true});
+      myst.classList.add('solved');seq.classList.add('solved');
+      verdict.className='verdict good';verdict.innerHTML='✔ Correct! The seed goes in the hole.';
+      sfx.win();burst(verdict,70);award('detective');
+    }else{
+      o.classList.remove('shake');void o.offsetWidth;o.classList.add('shake');
+      verdict.className='verdict bad';verdict.textContent=msg[o.dataset.k];sfx.buzz();
+      setTimeout(function(){o.classList.remove('shake')},500);
+    }
+  })});
+  function reset(){
+    solved=false;
+    opts.forEach(function(x){x.disabled=false;x.classList.remove('right','shake')});
+    myst.classList.remove('solved');seq.classList.remove('solved');
+    verdict.className='verdict';verdict.textContent='Tap the missing step!';
+  }
+  return{reset:reset};
+})();
+
+/* ---------- slide 5: level cleared ---------- */
+var s5=(function(){
+  var badge=$('#badge'),ans=$('#answer'),again=$('#playAgain'),revealed=false,t=0;
+  function enter(){
+    badge.classList.remove('unlocked');void badge.getBoundingClientRect();
+    clearTimeout(t);
+    t=setTimeout(function(){badge.classList.add('unlocked');sfx.win();rain(3800)},300);
+  }
+  $('#revealBtn').addEventListener('click',function(){
+    if(revealed)return;revealed=true;
+    ans.classList.add('revealed');sfx.win();burst(ans,80);again.hidden=false;
+  });
+  $('#moreConfetti').addEventListener('click',function(){rain(2200);sfx.ding()});
+  again.addEventListener('click',resetAll);
+  function reset(){clearTimeout(t);revealed=false;ans.classList.remove('revealed');again.hidden=true;badge.classList.remove('unlocked')}
+  return{enter:enter,reset:reset};
+})();
+
+function resetAll(){
+  clearInterval(state.timer);state.t0=null;$('#clock').textContent='0:00';
+  state.stars=0;awarded={};$('#starCount').textContent='0';$('#s5Stars').textContent='0';
+  s2.reset();s3.reset();s4.reset();s5.reset();go(1);
+}
+
+go(1);
+})();
+</script>
+
+</body></html>
